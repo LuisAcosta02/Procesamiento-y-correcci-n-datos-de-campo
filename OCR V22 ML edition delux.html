@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrector OCR - Hybrid ML Edition V19 Restored</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0f172a;
+            --accent-color: #2563eb;
+            --bg-color: #f8fafc;
+            --border-color: #e2e8f0;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --tf-color: #f97316;
+            --surface: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+        }
+        
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); margin: 0; padding: 0; color: var(--text-main); }
+        
+        header { background: linear-gradient(135deg, var(--primary-color), #1e293b); color: white; padding: 24px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+        header p { margin: 8px 0 0 0; font-size: 13px; color: #cbd5e1; font-weight: 400; }
+        
+        .container { max-width: 98%; margin: 24px auto; padding: 24px; background: var(--surface); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); }
+        h2, h3 { color: var(--primary-color); margin-top: 20px; font-weight: 600; font-size: 18px; display: flex; align-items: center; gap: 8px;}
+        
+        .controls, .control-group { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .control-group { padding: 16px; background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; width: 100%; box-sizing: border-box;}
+        
+        .btn { background-color: var(--primary-color); color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 500; font-family: inherit; transition: all 0.2s; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .btn:hover { background-color: #1e293b; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .btn:active { transform: translateY(0); }
+        .btn-success { background-color: #16a34a; }
+        .btn-success:hover { background-color: #15803d; }
+        .btn-warning { background-color: #eab308; color: #422006; }
+        .btn-warning:hover { background-color: #ca8a04; }
+        .btn-danger { background-color: #ef4444; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-tf { background-color: var(--tf-color); }
+        .btn-tf:hover { background-color: #ea580c; }
+        .btn:disabled { background-color: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+        
+        input[type="text"], input[type="number"], select { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 13px; color: var(--text-main); transition: all 0.2s; outline: none; background: #fff;}
+        input:focus, select:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        input[type="file"] { font-size: 13px; }
+        
+        .header-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-size: 11px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--surface); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .stat-card h5 { margin: 0 0 8px 0; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; color: var(--primary-color); line-height: 1; }
+        .stat-card .subtext { font-size: 11px; color: #94a3b8; margin-top: 8px; }
+        
+        .tf-panel { background: #fff7ed; border: 1px solid #fed7aa; padding: 20px; margin-bottom: 24px; border-radius: 10px; }
+        .tf-log { font-family: 'Courier New', Courier, monospace; font-size: 11px; background: #1e293b; color: #4ade80; padding: 12px; border-radius: 6px; height: 60px; overflow-y: auto; margin-top: 12px; }
+
+        .table-container { overflow-x: auto; margin-bottom: 30px; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+        th { background-color: #f8fafc; color: var(--text-muted); padding: 12px 8px; text-align: center; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-color); border-right: 1px solid var(--border-color); position: sticky; top: 0; z-index: 10; white-space: nowrap;}
+        th:last-child { border-right: none; }
+        td { border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); padding: 0; position: relative; background: #fff;}
+        td:last-child { border-right: none; }
+        
+        td input { width: 100%; height: 34px; box-sizing: border-box; border: 2px solid transparent; border-radius: 0; text-align: center; padding: 4px; font-family: inherit; font-size: 12px; background: transparent; transition: background 0.1s; outline: none; color: var(--text-main); }
+        td input:hover { background: #f1f5f9; cursor: cell; }
+        td input:focus { border: 2px solid var(--accent-color); background: #fff; z-index: 5; position: relative; cursor: text; box-shadow: 0 0 5px rgba(37,99,235,0.2); }
+        
+        tr:nth-child(even) td { background-color: #fafafa; }
+        .calc-field { background-color: #f1f5f9 !important; color: var(--text-muted) !important; font-weight: 500;}
+        
+        /* RESTAURADOS: Estilos de corrección y error */
+        .error-cell { background-color: #fee2e2 !important; color: #991b1b !important; font-weight: bold; border: 2px solid #ef4444 !important; }
+        .cell-corrected { background-color: #fef9c3 !important; color: #854d0e !important; font-weight: bold; border: 1px dashed #eab308 !important;}
+        .confidence-high { background-color: var(--success-bg) !important; }
+        
+        .ml-status { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-left: 10px; letter-spacing: 0.5px; }
+        .ml-active { background: var(--success-bg); color: var(--success-text); border: 1px solid #bbf7d0;}
+        .ml-inactive { background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border-color);}
+        .section-divider { border: 0; height: 1px; background: var(--border-color); margin: 32px 0 24px 0; }
+
+        .tf-cell-btn { position: absolute; top: 2px; right: 2px; background: var(--tf-color); color: white; font-size: 9px; border: none; border-radius: 4px; cursor: pointer; padding: 3px 5px; z-index: 20; display: none; animation: fadeIn 0.2s; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .tf-cell-btn:hover { background: #ea580c; transform: scale(1.05); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px);} to { opacity: 1; transform: translateY(0);} }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); z-index: 1000; }
+        .modal-content { background: var(--surface); width: 95%; max-width: 1100px; margin: 40px auto; padding: 24px; border-radius: 12px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; font-size: 20px; }
+        .btn-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; padding: 4px; line-height: 1; transition: color 0.2s;}
+        .btn-close:hover { color: #ef4444; }
+        
+        .tabs { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; gap: 8px;}
+        .tab { padding: 12px 24px; cursor: pointer; background: transparent; border-radius: 8px 8px 0 0; font-weight: 600; color: var(--text-muted); font-size: 13px; transition: all 0.2s; border-bottom: 2px solid transparent; margin-bottom: -2px;}
+        .tab:hover { color: var(--primary-color); background: #f8fafc; }
+        .tab.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s;}
+        
+        .memory-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-size: 13px; border-radius: 6px; margin-bottom: 4px;}
+        .memory-item:hover { background: #f8fafc; }
+        
+        .form-row { display: flex; gap: 16px; align-items: flex-end; background: #f0f9ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bae6fd; flex-wrap: wrap;}
+        select optgroup { font-weight: bold; color: var(--primary-color); }
+        .consequence-block { display: flex; gap: 12px; align-items: flex-end; border-left: 3px solid #10b981; padding-left: 12px; margin-top: 12px; background: #fff; padding: 12px; border-radius: 0 8px 8px 0; border: 1px solid #e2e8f0; border-left-width: 3px;}
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧠 Corrector Híbrido V19 Restored</h1>
+    <p>Diccionario Experto + Reglas Lógicas + Auto-Aprendizaje + IA + Excel Perfecto</p>
+</header>
+
+<div class="container">
+    <h3>📥 Paso 1: Cargar Datos OCR</h3>
+    <div class="control-group">
+        <div class="input-group">
+            <label>Cargar datos JSON extraídos</label>
+            <input type="file" id="jsonInput" accept=".json">
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>🧠 Paso 2: Centro de Control Lógico (Cerebro)</h3>
+        <button class="btn btn-warning" id="btnManageMemory" style="display: none;">🛠️ Editar Reglas del Cerebro</button>
+    </div>
+    <div class="control-group" style="margin-top: 12px;">
+        <div class="input-group">
+            <label>Cargar Archivo Base (JSON)</label>
+            <input type="file" id="mlInput" accept=".json">
+        </div>
+        <span class="ml-status ml-inactive" id="mlStatus">Cerebro Inactivo</span>
+    </div>
+
+    <hr class="section-divider">
+
+    <div id="workspace" style="display: none;">
+        
+        <div class="tf-panel">
+            <h3 style="color: var(--tf-color); margin-top: 0; font-size: 16px;">🤖 Inteligencia Aumentada (TensorFlow.js)</h3>
+            <p style="font-size: 12px; color: #7c2d12;">Esta red neuronal leerá <b>todo tu cerebro histórico</b> y la tabla actual. Te mostrará un botón naranja en las celdas de material (C, M, S, G, PT) vacías si sugiere que deben llevar una "X".</p>
+            <div style="display: flex; gap: 12px; align-items: center; margin-top: 16px;">
+                <button class="btn btn-tf" id="btnTrainTF" onclick="trainHybridModel()">🚀 Entrenar Red Neuronal</button>
+                <span id="tfStatus" style="font-size: 12px; font-weight: 600; color: #9a3412;">Esperando inicio...</span>
+            </div>
+            <div class="tf-log" id="tfLog">> Listo para procesar datos...</div>
+        </div>
+
+        <div id="statsContainer">
+            <h3>📊 Métricas de Autocorrección</h3>
+            <div class="stats-grid">
+                <div class="stat-card"><h5>Correcciones Exactas</h5><div class="value" id="statExactCorrections" style="color: #2563eb;">0</div><div class="subtext">Diccionario Experto</div></div>
+                <div class="stat-card"><h5>Matches IA & Difusos</h5><div class="value" id="statFuzzyMatches" style="color: var(--tf-color);">0</div><div class="subtext">Auto-Aprendizaje > 85%</div></div>
+                <div class="stat-card"><h5>Reglas Cruzadas</h5><div class="value" id="statLogicalRules" style="color: #10b981;">0</div><div class="subtext">Lógica Aplicada</div></div>
+                <div class="stat-card"><h5>Limpieza Básica</h5><div class="value" id="statCleanups" style="color: #8b5cf6;">0</div><div class="subtext">Caracteres Basura</div></div>
+                <div class="stat-card"><h5>Campos Analizados</h5><div class="value" id="statMemorizedFields">0</div><div class="subtext">Palabras en Memoria</div></div>
+                <div class="stat-card"><h5>Alertas Críticas</h5><div class="value" id="statAnomalies" style="color: #ef4444;">0</div><div class="subtext">Celdas Inválidas/Vacías</div></div>
+            </div>
+        </div>
+
+        <h3>📋 Datos de Encabezado</h3>
+        <div class="header-grid" id="headerGrid"></div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>📊 Registro de Campo <span style="font-size: 11px; color: var(--text-muted); font-weight: normal; margin-left: 10px;">(Usa las flechas del teclado y Enter para navegar)</span></h3>
+            <button class="btn btn-success" style="height: 32px; padding: 0 15px;" onclick="addNewRow()">➕ Agregar Fila al Final</button>
+        </div>
+        <div class="table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Conf</th><th>Prof De</th><th>Prof A</th>
+                        <th>C</th><th>M</th><th>S</th><th>G</th><th>B</th><th>PT</th><th>RE</th>
+                        <th>Color</th><th style="min-width: 180px;">Observaciones</th><th>Muestra No</th>
+                        <th>Herr. Avance</th><th>Herr. Muestreo</th>
+                        <th>Hincado</th><th>Rec (cm)</th><th>Rec (%)</th>
+                        <th>NSPT 0-15</th><th>NSPT 15-30</th><th>NSPT 30-45</th><th>NSPT 45-60</th>
+                        <th>Rechazo</th><th>Suma NSPT</th><th>RQD (%)</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <hr class="section-divider">
+
+        <h3>💾 Paso 3: Respaldo y Exportación</h3>
+        <div class="controls">
+            <button class="btn" id="btnSaveCorrectedJSON">Guardar JSON Final</button>
+            <button class="btn" id="btnSaveOriginalJSON" style="background: #64748b;">Descargar Original</button>
+            <button class="btn btn-warning" id="btnExportML" style="margin-left: auto;">Exportar Cerebro Actualizado</button>
+        </div>
+
+        <hr class="section-divider">
+
+        <h3>📄 Paso 4: Generación de Reportes</h3>
+        <div class="controls">
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; flex: 1; min-width: 250px;">
+                <label style="font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 10px;">Cargar Plantilla Excel (.xlsx)</label>
+                <input type="file" id="templateInput" accept=".xlsx, .xlsm" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; gap: 10px; flex-direction: column;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" id="btnRegistro" disabled>Exportar Registro Excel</button>
+                    <button class="btn btn-success" id="btnMuestra" disabled>Exportar Muestra Excel</button>
+                </div>
+                <button class="btn" id="btnCSV" style="background: #0f766e;">Exportar Tabla Plana (CSV)</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="memoryModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🛠️ Edición del Centro de Control</h2>
+            <button class="btn-close" id="btnCloseModal">✖</button>
+        </div>
+        
+        <script>
+            const allFieldOptions = `
+                <optgroup label="Datos de Encabezado">
+                    <option value="head_proyecto">Proyecto</option>
+                    <option value="head_localizacion">Localización</option>
+                    <option value="head_tipo_sondeo">Tipo Sondeo</option>
+                    <option value="head_sondeo">Sondeo</option>
+                    <option value="head_na">N.A. (Nivel Freático)</option>
+                    <option value="head_x">Coordenada X</option>
+                    <option value="head_y">Coordenada Y</option>
+                    <option value="head_z">Coordenada Z</option>
+                    <option value="head_fecha">Fecha</option>
+                    <option value="head_operador">Operador</option>
+                    <option value="head_supervisor">Supervisor</option>
+                    <option value="head_maquinaria">Maquinaria</option>
+                    <option value="head_martillo">Martillo</option>
+                    <option value="head_diametro_barra">Diámetro Barra</option>
+                </optgroup>
+                <optgroup label="Suelos y Materiales">
+                    <option value="c">C</option><option value="m">M</option><option value="s">S</option><option value="g">G</option><option value="b">B</option><option value="pt">PT</option><option value="re">RE</option>
+                </optgroup>
+                <optgroup label="Datos Principales Tabla">
+                    <option value="prof_de">Prof De</option><option value="prof_a">Prof A</option>
+                    <option value="color">Color</option><option value="observaciones">Observaciones</option>
+                    <option value="muestra_no">Muestra No</option>
+                    <option value="herramienta_avance">Herr. Avance</option><option value="herramienta_muestreo">Herr. Muestreo</option>
+                </optgroup>
+                <optgroup label="Recuperación y NSPT">
+                    <option value="hincado">Hincado</option><option value="recuperacion_cm">Rec (cm)</option><option value="recuperacion_pct">Rec (%)</option>
+                    <option value="nspt_0_15">NSPT 0-15</option><option value="nspt_15_30">NSPT 15-30</option>
+                    <option value="nspt_30_45">NSPT 30-45</option><option value="nspt_45_60">NSPT 45-60</option>
+                    <option value="rechazo">Rechazo</option><option value="suma_nspt">Suma NSPT</option>
+                    <option value="rqd">RQD (%)</option>
+                </optgroup>
+            `;
+        </script>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('tab-diccionario', this)">📖 Diccionario de Autocorrección</div>
+            <div class="tab" onclick="switchTab('tab-reglas', this)">🔗 Reglas Cruzadas (Lógica)</div>
+            <div class="tab" onclick="switchTab('tab-limpieza', this)">🧹 Limpieza de Basura OCR</div>
+        </div>
+
+        <div id="tab-diccionario" class="tab-content active">
+            <div class="form-row">
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Columna a corregir</label>
+                    <select id="newMlField"><script>document.write(allFieldOptions);</script></select>
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Si el OCR lee (Error Original):</label>
+                    <input type="text" id="newMlOriginal" placeholder="Ej. bt">
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Reemplazar por:</label>
+                    <input type="text" id="newMlCorrected" placeholder="Ej. BT">
+                </div>
+                <button class="btn btn-success" style="height: 38px;" onclick="addManualMLRule()">➕ Añadir Memoria</button>
+            </div>
+            <div id="memoryList" style="margin-top: 15px; border: 1px solid var(--border-color); border-radius: 8px; height: 350px; overflow-y: auto;"></div>
+        </div>
+
+        <div id="tab-reglas" class="tab-content">
+            <div class="form-row" style="flex-direction: column; align-items: stretch;">
+                <div style="display: flex; gap: 12px; width: 100%;">
+                    <div class="input-group" style="flex: 1;">
+                        <label>Condición: Si la columna</label>
+                        <select id="ruleIfCol"><script>document.write(allFieldOptions);</script></select>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label>Tipo de Búsqueda</label>
+                        <select id="ruleCondition">
+                            <option value="exact">Es exactamente igual a</option>
+                            <option value="contains">Contiene la palabra</option>
+                        </select>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label>Texto a detectar:</label>
+                        <input type="text" id="ruleIfVal" placeholder="Ej. Arcilla">
+                    </div>
+                </div>
+
+                <div class="consequence-block">
+                    <div class="input-group" style="flex: 1;">
+                        <label>Acción 1: Asignar a Columna</label>
+                        <select id="ruleThenCol"><script>document.write(allFieldOptions);</script></select>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label>El valor:</label>
+                        <input type="text" id="ruleThenVal" placeholder="Ej. X">
+                    </div>
+                </div>
+
+                <div class="consequence-block" style="border-left-color: #f59e0b;">
+                    <div class="input-group" style="flex: 1;">
+                        <label>Acción 2 (Opcional): Asignar a Col</label>
+                        <select id="ruleThenCol2"><option value="">-- NO APLICAR --</option><script>document.write(allFieldOptions);</script></select>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label>El valor:</label>
+                        <input type="text" id="ruleThenVal2" placeholder="Opcional">
+                    </div>
+                </div>
+
+                <div class="consequence-block" style="border-left-color: #3b82f6;">
+                    <div class="input-group" style="flex: 1;">
+                        <label>Acción 3 (Opcional): Asignar a Col</label>
+                        <select id="ruleThenCol3"><option value="">-- NO APLICAR --</option><script>document.write(allFieldOptions);</script></select>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label>El valor:</label>
+                        <input type="text" id="ruleThenVal3" placeholder="Opcional">
+                    </div>
+                    <button class="btn btn-success" style="height: 38px; align-self: flex-end;" onclick="addLogicalRule()">➕ Crear Lógica</button>
+                </div>
+            </div>
+            <div id="rulesList" style="margin-top: 15px; border: 1px solid var(--border-color); border-radius: 8px; height: 250px; overflow-y: auto;"></div>
+        </div>
+
+        <div id="tab-limpieza" class="tab-content">
+            <div class="form-row">
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Limpiar Columna:</label>
+                    <select id="cleanCol">
+                        <option value="todas">-- BARRIDO EN TODAS LAS COLUMNAS --</option>
+                        <script>document.write(allFieldOptions);</script>
+                    </select>
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Eliminar texto / símbolo:</label>
+                    <input type="text" id="cleanText" placeholder="Ej. |">
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Condición de borrado:</label>
+                    <select id="cleanType">
+                        <option value="contains">Si contiene (borra solo el símbolo)</option>
+                        <option value="exact">Si es exacto (vacía toda la celda)</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" style="height: 38px;" onclick="addCleanupRule()">➕ Crear Regla</button>
+            </div>
+            <div id="cleanupList" style="margin-top: 15px; border: 1px solid var(--border-color); border-radius: 8px; height: 350px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== 1. VARIABLES GLOBALES Y CONFIGURACIÓN ==========
+    let globalData = { header: {}, rows: [] };
+    let originalOCRData = null; // RESTAURADO
+    let correctionMemory = {}; let logicalRelations = []; let cleanupRules = [];
+    let sessionStats = { exactCorrections: 0, fuzzyMatches: 0, logicalRulesApplied: 0, cleanupsApplied: 0, anomaliesDetected: 0, tfAccepted: 0 };
+    let excelTemplateBuffer = null;
+    let excelWorkbook = null;
+    
+    const camposEncabezado = ['proyecto', 'localizacion', 'tipo_sondeo', 'sondeo', 'na', 'x', 'y', 'z', 'fecha', 'operador', 'supervisor', 'maquinaria', 'martillo', 'diametro_barra'];
+    const columnasNumericas = ['prof_de', 'prof_a', 'hincado', 'recuperacion_cm', 'nspt_0_15', 'nspt_15_30', 'nspt_30_45', 'nspt_45_60', 'rechazo', 'suma_nspt', 'rqd'];
+    const TARGET_CLASSES = ['c', 'm', 's', 'g', 'pt'];
+    const ML_IGNORE_FIELDS = ['prof_de', 'prof_a', 'muestra_no', 'hincado', 'recuperacion_cm', 'recuperacion_pct', 'nspt_0_15', 'nspt_15_30', 'nspt_30_45', 'nspt_45_60', 'rechazo', 'suma_nspt', 'rqd'];
+    const OCR_REPLACEMENTS = [[/O/g, '0'], [/o/g, '0'], [/I/g, '1'], [/l/g, '1'], [/\|/g, '1'], [/S/g, '5'], [/s/g, '5'], [/rn/g, 'm'], [/cl/g, 'd'], [/vv/g, 'w'], [/ﬁ/g, 'fi']];
+    
+    const tableColsKeys = [
+        'prof_de', 'prof_a', 'c', 'm', 's', 'g', 'b', 'pt', 're',
+        'color', 'observaciones', 'muestra_no', 'herramienta_avance', 'herramienta_muestreo',
+        'hincado', 'recuperacion_cm', 'recuperacion_pct', 'nspt_0_15', 'nspt_15_30', 'nspt_30_45', 'nspt_45_60',
+        'rechazo', 'suma_nspt', 'rqd'
+    ];
+
+    let tfModel = null; let tfVocab = {}; let isModelTrained = false;
+
+    function logTF(msg) {
+        const logBox = document.getElementById('tfLog');
+        logBox.innerHTML += `<div>> ${msg}</div>`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // ========== RESTAURACIÓN V16: FORMATO FUERTE DE CAMPOS ==========
+    function normalizeValue(value, isNumeric = false) {
+        if (!value) return '';
+        let result = value.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ').replace(/[|]/g, 'l').replace(/[°]/g, '0');
+        return isNumeric ? result.replace(/,/g, '.').replace(/[;:_]/g, '') : result.replace(/[.,;:_]/g, '');
+    }
+
+    function formatField(key, value) {
+        if (value === null || value === undefined) return '';
+        const esNum = columnasNumericas.includes(key);
+        let limpio = normalizeValue(value, esNum);
+        
+        if (esNum) {
+            OCR_REPLACEMENTS.forEach(([regex, rep]) => limpio = limpio.replace(regex, rep));
+            if (key === 'hincado' && limpio && !limpio.includes('.')) {
+                let num = parseFloat(limpio); if (!isNaN(num) && num >= 10) limpio = (num / 100).toFixed(2);
+            } else if (key === 'recuperacion_cm' && limpio && limpio.includes('.')) {
+                let num = parseFloat(limpio); if (!isNaN(num)) limpio = (num < 10) ? Math.round(num * 100).toString() : Math.round(num).toString();
+            } else if (key === 'rqd' && limpio) {
+                let cleanNum = limpio.replace(/\./g, '');
+                if (cleanNum.length === 3 || cleanNum.length === 4) limpio = cleanNum.substring(0, 2) + '.' + cleanNum.substring(2);
+            }
+        }
+        return limpio;
+    }
+
+    // ========== RESTAURACIÓN V16: AUTO-APRENDIZAJE Y FUZZY MATCHING ==========
+    function similarity(a, b) {
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
+                else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+            }
+        }
+        return 1 - (matrix[b.length][a.length] / Math.max(a.length, b.length));
+    }
+
+    function findClosestCorrection(field, value) {
+        if (!correctionMemory[field] || ML_IGNORE_FIELDS.includes(field)) return null;
+        const normalizedValue = normalizeValue(value);
+        let bestMatch = null; let bestScore = 0;
+        
+        for (const original in correctionMemory[field]) {
+            const score = similarity(normalizedValue, normalizeValue(original));
+            if (score > bestScore) { bestScore = score; bestMatch = correctionMemory[field][original]; }
+        }
+        if (bestScore > 0.85 && bestMatch && bestMatch.count >= 3) return { value: bestMatch.correct, score: bestScore, type: 'fuzzy' };
+        return null;
+    }
+
+    function learnCorrection(field, original, corrected) {
+        if (ML_IGNORE_FIELDS.includes(field)) return; 
+        const esNum = columnasNumericas.includes(field);
+        const origNorm = normalizeValue(original, esNum); const corrNorm = normalizeValue(corrected, esNum);
+        
+        if (!field || !origNorm || !corrNorm || origNorm === corrNorm) return;
+        if (!correctionMemory[field]) correctionMemory[field] = {};
+        if (!correctionMemory[field][original]) correctionMemory[field][original] = { correct: corrected, count: 1 };
+        else { correctionMemory[field][original].correct = corrected; correctionMemory[field][original].count += 1; }
+        
+        sessionStats.exactCorrections++; updateStatsBox();
+    }
+
+    // ========== 2. LÓGICAS DE CORRECCIÓN ==========
+    function applyCleanupRules(row) {
+        cleanupRules.forEach(rule => {
+            let colsToClean = rule.col === 'todas' ? Object.keys(row) : [rule.col];
+            colsToClean.forEach(c => {
+                if(row[c]) {
+                    let oStr = row[c].toString().trim();
+                    let cambiado = false;
+                    if (rule.type === 'exact' && oStr === rule.text) {
+                        row[c] = ''; cambiado = true;
+                    } else if (rule.type === 'contains' && oStr.includes(rule.text)) {
+                        row[c] = oStr.replace(new RegExp(rule.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '').trim();
+                        cambiado = true;
+                    }
+                    if(cambiado) sessionStats.cleanupsApplied++;
+                }
+            });
+        });
+    }
+
+    function applyLogicalRelations(row, triggerCol = null, rowIndex = null) {
+        logicalRelations.forEach(rule => {
+            if (triggerCol && rule.ifCol !== triggerCol) return;
+            const condition = rule.condition || 'exact';
+            
+            let rowVal = '';
+            if (rule.ifCol.startsWith('head_')) {
+                const hCol = rule.ifCol.replace('head_', '');
+                rowVal = (globalData.header[hCol] || '').toString().trim().toLowerCase();
+            } else {
+                rowVal = (row[rule.ifCol] || '').toString().trim().toLowerCase();
+            }
+
+            let isMatch = false; 
+            const targetVal = (rule.ifVal || '').toString().toLowerCase();
+            
+            if (condition === 'exact') isMatch = (rowVal === targetVal);
+            else if (condition === 'contains') isMatch = rowVal.includes(targetVal);
+
+            if (isMatch) {
+                const applyAction = (tCol, tVal) => {
+                    if (!tCol) return;
+                    if (tCol.startsWith('head_')) {
+                        const hCol = tCol.replace('head_', '');
+                        if (globalData.header[hCol] !== tVal) {
+                            globalData.header[hCol] = tVal;
+                            sessionStats.logicalRulesApplied++;
+                            let hInput = document.getElementById(tCol);
+                            if (hInput) { hInput.value = tVal; hInput.classList.add('cell-corrected'); }
+                        }
+                    } else {
+                        if (row[tCol] !== tVal) { 
+                            row[tCol] = tVal; 
+                            sessionStats.logicalRulesApplied++; 
+                            if (rowIndex !== null) {
+                                let cell = document.getElementById(`cell_${rowIndex}_${tCol}`);
+                                if (cell) { cell.value = tVal; cell.classList.add('cell-corrected'); }
+                                if (TARGET_CLASSES.includes(tCol)) {
+                                    let btn = document.getElementById(`sug_btn_${rowIndex}_${tCol}`);
+                                    if (btn) btn.style.display = 'none';
+                                }
+                            }
+                        }
+                    }
+                };
+                applyAction(rule.thenCol, rule.thenVal);
+                if (rule.thenCol2) applyAction(rule.thenCol2, rule.thenVal2);
+                if (rule.thenCol3) applyAction(rule.thenCol3, rule.thenVal3);
+            }
+        });
+    }
+
+    // RESTAURACIÓN V16: Validación de anomalías
+    function validateRow(row, index) {
+        const anomalies = [];
+        const rqd = parseFloat(row.rqd);
+        if (!isNaN(rqd) && rqd > 100) anomalies.push('RQD > 100%');
+
+        const rec = parseFloat(row.recuperacion_pct);
+        if (!isNaN(rec) && rec > 100) anomalies.push('Recuperación > 100%');
+
+        const pDe = parseFloat(row.prof_de);
+        const pA = parseFloat(row.prof_a);
+        if (!isNaN(pDe) && !isNaN(pA)) {
+            if (pA <= pDe) anomalies.push('Prof A <= Prof De');
+            else if (Math.abs((pA - pDe) - 0.60) > 0.01) anomalies.push('Avance != 0.60m');
+        }
+
+        const n15 = parseFloat(row.nspt_15_30);
+        const n30 = parseFloat(row.nspt_30_45);
+        if ((!isNaN(n15) && n15 > 100) || (!isNaN(n30) && n30 > 100)) anomalies.push('NSPT > 100');
+
+        row.anomalies = anomalies;
+        return anomalies;
+    }
+
+    function validarErrores(index) {
+        const row = globalData.rows[index];
+        
+        const recPctInput = document.getElementById(`cell_${index}_recuperacion_pct`);
+        if (recPctInput) {
+            const pct = parseFloat(row.recuperacion_pct);
+            if (!isNaN(pct) && pct > 100) { recPctInput.classList.add('error-cell'); recPctInput.title = "Máximo 100%"; }
+            else { recPctInput.classList.remove('error-cell'); recPctInput.title = ""; }
+        }
+
+        const profAInput = document.getElementById(`cell_${index}_prof_a`);
+        if (profAInput) {
+            const pDe = parseFloat(row.prof_de); const pA = parseFloat(row.prof_a);
+            profAInput.classList.remove('error-cell'); profAInput.title = "";
+            if (!isNaN(pDe) && !isNaN(pA)) {
+                if (pA <= pDe) { 
+                    profAInput.classList.add('error-cell'); profAInput.title = "Prof A <= Prof De"; 
+                } else if (Math.abs((pA - pDe) - 0.60) > 0.01) { 
+                    profAInput.classList.add('error-cell'); profAInput.title = "Sugerencia: El avance no es de 0.60m"; 
+                }
+            }
+        }
+
+        const rqdInput = document.getElementById(`cell_${index}_rqd`);
+        if (rqdInput) {
+            const rqd = parseFloat(row.rqd);
+            if (!isNaN(rqd) && rqd > 100) { rqdInput.classList.add('error-cell'); rqdInput.title = "Máximo 100%"; }
+            else { rqdInput.classList.remove('error-cell'); rqdInput.title = ""; }
+        }
+    }
+
+    function applyCorrectionsToRow(row, index) {
+        applyCleanupRules(row);
+        for (let key in row) {
+            let value = row[key];
+            if (!value) continue;
+            
+            // 1. Coincidencia Exacta
+            if (correctionMemory[key] && correctionMemory[key][value]) {
+                if (correctionMemory[key][value].count >= 1) { 
+                    row[key] = correctionMemory[key][value].correct; sessionStats.exactCorrections++; continue; 
+                }
+            } 
+
+            // 2. Coincidencia Difusa (Fuzzy - V16 Restored)
+            if (!ML_IGNORE_FIELDS.includes(key)) {
+                const fuzzy = findClosestCorrection(key, value);
+                if (fuzzy && fuzzy.type === 'fuzzy') { row[key] = fuzzy.value; sessionStats.fuzzyMatches++; }
+            }
+        }
+        
+        applyLogicalRelations(row, null, index);
+        
+        // FORZAR TIPO ORACIÓN AL CARGAR
+        if (row.observaciones) {
+            let text = row.observaciones.toString();
+            row.observaciones = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+        }
+    }
+
+    // ========== 3. TENSORFLOW.JS ==========
+    function textToTensorArray(text, vocabSize) {
+        const arr = new Array(vocabSize).fill(0);
+        if (!text) return arr;
+        normalizeValue(text).split(' ').forEach(w => { if (tfVocab[w] !== undefined) arr[tfVocab[w]] = 1; });
+        return arr;
+    }
+
+    async function trainHybridModel() {
+        document.getElementById('btnTrainTF').disabled = true;
+        document.getElementById('tfStatus').textContent = "Entrenando modelo IA...";
+        document.getElementById('tfStatus').style.color = "#ea580c";
+        logTF("Extrayendo conocimiento del Sistema Experto y Tabla actual...");
+
+        let trainingTexts = []; let trainingLabels = []; 
+        if (correctionMemory['observaciones']) {
+            for (let orig in correctionMemory['observaciones']) {
+                let text = correctionMemory['observaciones'][orig].correct;
+                let simRow = { observaciones: text, c:'', m:'', s:'', g:'', pt:'' };
+                applyLogicalRelations(simRow, 'observaciones');
+                let tLow = text.toLowerCase();
+                if(tLow.includes('arcilla')) simRow.c = 'X';
+                if(tLow.includes('limo')) simRow.m = 'X';
+                if(tLow.includes('arena')) simRow.s = 'X';
+                if(tLow.includes('grava')) simRow.g = 'X';
+                if(tLow.includes('turba')) simRow.pt = 'X';
+                trainingTexts.push(text);
+                trainingLabels.push([simRow.c === 'X'?1:0, simRow.m === 'X'?1:0, simRow.s === 'X'?1:0, simRow.g === 'X'?1:0, simRow.pt === 'X'?1:0]);
+            }
+        }
+
+        globalData.rows.forEach(r => {
+            if (r.observaciones && (r.c||r.m||r.s||r.g||r.pt)) {
+                trainingTexts.push(r.observaciones);
+                trainingLabels.push([r.c?.toLowerCase()==='x'?1:0, r.m?.toLowerCase()==='x'?1:0, r.s?.toLowerCase()==='x'?1:0, r.g?.toLowerCase()==='x'?1:0, r.pt?.toLowerCase()==='x'?1:0]);
+            }
+        });
+
+        if (trainingTexts.length < 5) {
+            logTF("❌ Datos insuficientes para entrenar.");
+            document.getElementById('btnTrainTF').disabled = false; return;
+        }
+
+        tfVocab = {}; let vIdx = 0;
+        trainingTexts.forEach(txt => { normalizeValue(txt).split(' ').forEach(w => { if (w.length > 2 && tfVocab[w] === undefined) tfVocab[w] = vIdx++; }); });
+        const vocabSize = Object.keys(tfVocab).length;
+        logTF(`Dataset: ${trainingTexts.length} ejemplos. Vocabulario: ${vocabSize} palabras.`);
+
+        const xs = tf.tensor2d(trainingTexts.map(t => textToTensorArray(t, vocabSize)));
+        const ys = tf.tensor2d(trainingLabels);
+
+        tfModel = tf.sequential();
+        tfModel.add(tf.layers.dense({ units: 32, activation: 'relu', inputShape: [vocabSize] }));
+        tfModel.add(tf.layers.dense({ units: 16, activation: 'relu' }));
+        tfModel.add(tf.layers.dense({ units: 5, activation: 'sigmoid' }));
+
+        tfModel.compile({ optimizer: tf.train.adam(0.01), loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+
+        await tfModel.fit(xs, ys, { epochs: 40, shuffle: true, callbacks: { onEpochEnd: (epoch, logs) => {
+            if (epoch % 10 === 0) logTF(`Epoch ${epoch}: Pérdida = ${logs.loss.toFixed(4)}`);
+        }}});
+
+        isModelTrained = true;
+        document.getElementById('tfStatus').textContent = "✓ IA Activa (Evaluando celdas)";
+        document.getElementById('tfStatus').style.color = "#16a34a";
+        document.getElementById('btnTrainTF').disabled = false;
+        
+        globalData.rows.forEach((r, i) => runTFRowPrediction(i, r.observaciones));
+    }
+
+    async function runTFRowPrediction(index, text) {
+        if (!isModelTrained || !tfModel || !text) return;
+        const vocabSize = Object.keys(tfVocab).length;
+        const inputTensor = tf.tensor2d([textToTensorArray(text, vocabSize)]);
+        const pred = tfModel.predict(inputTensor);
+        const values = await pred.data();
+        
+        TARGET_CLASSES.forEach((col, i) => {
+            const prob = values[i];
+            const btnEl = document.getElementById(`sug_btn_${index}_${col}`);
+            const inputEl = document.getElementById(`cell_${index}_${col}`);
+            if (btnEl && inputEl) {
+                if (prob > 0.60 && !inputEl.value) {
+                    btnEl.style.display = 'block';
+                    btnEl.title = `Sugerencia IA (${(prob*100).toFixed(0)}%)\nClic para asignar X`;
+                    sessionStats.fuzzyMatches++;
+                } else {
+                    btnEl.style.display = 'none'; 
+                }
+            }
+        });
+        updateStatsBox(); inputTensor.dispose(); pred.dispose();
+    }
+
+    window.applyTFCellSuggestion = function(index, col) {
+        const input = document.getElementById(`cell_${index}_${col}`);
+        const btn = document.getElementById(`sug_btn_${index}_${col}`);
+        if(input) { 
+            input.value = 'X'; globalData.rows[index][col] = 'X'; input.classList.add('cell-corrected'); 
+        }
+        if(btn) btn.style.display = 'none';
+        sessionStats.tfAccepted++; updateStatsBox();
+    }
+
+    // ========== NAVEGACIÓN POR TECLADO EXCEL-LIKE ==========
+    document.addEventListener('keydown', function(e) {
+        if (!e.target.classList.contains('nav-input')) return;
+        
+        const row = parseInt(e.target.getAttribute('data-row'));
+        const col = parseInt(e.target.getAttribute('data-col'));
+        let nextRow = row; let nextCol = col;
+        const maxRow = globalData.rows.length - 1;
+        const maxCol = tableColsKeys.length - 1;
+        let moved = false;
+
+        switch(e.key) {
+            case 'ArrowUp':
+                nextRow = Math.max(0, row - 1); moved = true; e.preventDefault(); break;
+            case 'ArrowDown':
+                nextRow = Math.min(maxRow, row + 1); moved = true; e.preventDefault(); break;
+            case 'Enter':
+                e.preventDefault();
+                if (e.shiftKey) { nextRow = Math.max(0, row - 1); } 
+                else { nextRow = Math.min(maxRow, row + 1); }
+                moved = true; break;
+            case 'ArrowLeft':
+                if (e.target.selectionStart === 0 && e.target.selectionEnd === 0) {
+                    nextCol = Math.max(0, col - 1); moved = true; e.preventDefault();
+                }
+                break;
+            case 'ArrowRight':
+                if (e.target.selectionStart === e.target.value.length && e.target.selectionEnd === e.target.value.length) {
+                    nextCol = Math.min(maxCol, col + 1); moved = true; e.preventDefault();
+                }
+                break;
+        }
+
+        if (moved) {
+            const nextKey = tableColsKeys[nextCol];
+            const nextInput = document.getElementById(`cell_${nextRow}_${nextKey}`);
+            if (nextInput) {
+                nextInput.focus();
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                    setTimeout(() => nextInput.select(), 0);
+                }
+            }
+        }
+    });
+
+    // ========== 4. RENDERIZADO UI Y LÓGICA DE FILAS ==========
+    function renderWorkspace() {
+        const headerGrid = document.getElementById('headerGrid'); headerGrid.innerHTML = '';
+        camposEncabezado.forEach(key => {
+            let cleanLabel = key.replace(/_/g, ' ');
+            headerGrid.innerHTML += `
+                <div class="input-group">
+                    <label>${cleanLabel}</label>
+                    <input type="text" id="head_${key}" value="${globalData.header[key] || ''}" oninput="globalData.header['${key}'] = this.value">
+                </div>`;
+        });
+
+        const tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
+        
+        globalData.rows.forEach((row, index) => {
+            const tr = document.createElement('tr');
+            const confCell = `<td style="background: #f8fafc; color:#94a3b8;" id="cell_${index}_conf">100%</td>`;
+            
+            const c = (k, w='50px', iC=false) => {
+                const val = row[k] !== null && row[k] !== undefined ? row[k] : '';
+                let isTargetCol = TARGET_CLASSES.includes(k);
+                let colIdx = tableColsKeys.indexOf(k);
+                
+                // RESTAURACIÓN V16: Identificar si la celda fue corregida automáticamente
+                let isCorrected = false;
+                const originalVal = originalOCRData?.rows?.[index]?.[k];
+                if(originalOCRData && originalOCRData.rows[index]) {
+                    const oNormal = normalizeValue(originalVal, columnasNumericas.includes(k));
+                    const cNormal = normalizeValue(val, columnasNumericas.includes(k));
+                    if (oNormal !== cNormal) isCorrected = true; 
+                }
+
+                let extraClasses = '';
+                if (iC) extraClasses += ' calc-field';
+                if (isCorrected) extraClasses += ' cell-corrected';
+                
+                let tooltip = isCorrected ? `Modificado automáticamente. Original: ${originalVal||'Vacío'}` : '';
+
+                let inputHtml = `<input type="text" class="nav-input ${extraClasses}" style="width:${w};" id="cell_${index}_${k}" data-row="${index}" data-col="${colIdx}" value="${val}" oninput="updateRow(${index}, '${k}', this.value)" title="${tooltip}" ${iC?'readonly tabindex="-1"':''}>`;
+                
+                if (isTargetCol) {
+                    return `<td>${inputHtml}<button class="tf-cell-btn" id="sug_btn_${index}_${k}" tabindex="-1" onclick="applyTFCellSuggestion(${index}, '${k}')">X</button></td>`;
+                }
+                return `<td>${inputHtml}</td>`;
+            };
+
+            tr.innerHTML = confCell +
+                `${c('prof_de', '65px')} ${c('prof_a', '65px')}
+                ${c('c','45px')} ${c('m','45px')} ${c('s','45px')} ${c('g','45px')} ${c('b','45px')} ${c('pt','45px')} ${c('re','45px')}
+                ${c('color', '80px')} ${c('observaciones', '100%')} ${c('muestra_no', '60px')}
+                ${c('herramienta_avance', '60px')} ${c('herramienta_muestreo', '60px')}
+                ${c('hincado', '60px')} ${c('recuperacion_cm', '60px')}
+                <td class="calc-field"><input type="text" style="width:60px" class="calc-field nav-input" data-row="${index}" data-col="${tableColsKeys.indexOf('recuperacion_pct')}" id="cell_${index}_recuperacion_pct" value="${row.recuperacion_pct || ''}" readonly tabindex="-1"></td>
+                ${c('nspt_0_15', '60px')} ${c('nspt_15_30', '60px')} ${c('nspt_30_45', '60px')} ${c('nspt_45_60', '60px')}
+                ${c('rechazo', '60px', false)} ${c('suma_nspt', '60px', true)} ${c('rqd', '55px')}
+                <td style="white-space: nowrap;">
+                    <button class="btn btn-success" style="padding: 4px 6px; font-size: 11px; margin-right: 2px;" tabindex="-1" title="Insertar fila debajo" onclick="insertRowAfter(${index})">➕</button>
+                    <button class="btn btn-danger" style="padding: 4px 6px; font-size: 11px;" tabindex="-1" title="Eliminar fila" onclick="deleteRow(${index})">🗑️</button>
+                </td>`;
+            
+            tbody.appendChild(tr);
+            calculateRec(index); calculateSumaNSPT(index); validarErrores(index);
+        });
+        updateStatsBox();
+    }
+
+    function updateRow(index, key, value) {
+        const originalValue = originalOCRData?.rows?.[index]?.[key];
+        
+        // FORZAR TIPO ORACIÓN AL ESCRIBIR EN TIEMPO REAL
+        if (key === 'observaciones' && value) {
+            value = value.toString().charAt(0).toUpperCase() + value.toString().slice(1).toLowerCase();
+        }
+
+        globalData.rows[index][key] = value;
+        
+        // AUTO-APRENDIZAJE V16: Aprender si modificas a mano
+        if (originalValue && originalValue !== value) learnCorrection(key, originalValue, value);
+        
+        if (key === 'observaciones') runTFRowPrediction(index, value);
+        else if (TARGET_CLASSES.includes(key)) {
+            const btn = document.getElementById(`sug_btn_${index}_${key}`);
+            if (btn && value !== '') btn.style.display = 'none';
+        }
+        
+        applyLogicalRelations(globalData.rows[index], key, index);
+        
+        if (key === 'hincado' || key === 'recuperacion_cm') calculateRec(index);
+        if (key === 'nspt_0_15' || key === 'nspt_15_30' || key === 'nspt_30_45' || key === 'nspt_45_60') calculateSumaNSPT(index);
+        
+        let cell = document.getElementById(`cell_${index}_${key}`);
+        if(cell) { 
+            cell.classList.remove('cell-corrected'); 
+            
+            let start = cell.selectionStart;
+            let end = cell.selectionEnd;
+            cell.value = globalData.rows[index][key]; 
+            
+            if (document.activeElement === cell && (key === 'observaciones' || typeof start === 'number')) {
+                cell.setSelectionRange(start, end);
+            }
+        }
+        
+        const anomalies = validateRow(globalData.rows[index], index);
+        sessionStats.anomaliesDetected = anomalies.length; // Approximate for UI
+        validarErrores(index);
+        updateStatsBox();
+    }
+
+    function calculateRec(index) {
+        const r = globalData.rows[index];
+        const h = parseFloat(r.hincado); const rec = parseFloat(r.recuperacion_cm);
+        if (!isNaN(h) && !isNaN(rec) && h !== 0) {
+            r.recuperacion_pct = ((rec / (h * 100)) * 100).toFixed(2);
+            document.getElementById(`cell_${index}_recuperacion_pct`).value = r.recuperacion_pct;
+        }
+    }
+
+    function calculateSumaNSPT(index) {
+        const row = globalData.rows[index];
+        const parseNSPT = (val) => {
+            if (!val) return null; const s = val.toString().trim();
+            if (s.includes('/')) { const p = s.split('/'); return { blows: parseInt(p[0])||0, pen: parseInt(p[1])||0, isFrac: true }; } 
+            else { const b = parseInt(s); if (!isNaN(b)) return { blows: b, pen: 15, isFrac: false }; }
+            return null;
+        };
+        const v1 = parseNSPT(row.nspt_15_30); const v2 = parseNSPT(row.nspt_30_45);
+        if (v1 || v2) {
+            let tb = (v1 ? v1.blows : 0) + (v2 ? v2.blows : 0); let tp = (v1 ? v1.pen : 0) + (v2 ? v2.pen : 0);
+            row.rechazo = ((v1&&v1.isFrac) || (v2&&v2.isFrac) || tp !== 30) ? `${tb}/${tp}` : tb;
+        } else row.rechazo = '';
+        
+        let rEl = document.getElementById(`cell_${index}_rechazo`); if(rEl && document.activeElement !== rEl) rEl.value = row.rechazo;
+        let sum = 0; let vld = 0;
+        [parseNSPT(row.nspt_0_15), v1, v2, parseNSPT(row.nspt_45_60)].forEach(v => { if (v && !v.isFrac) { sum += v.blows; vld++; } });
+        row.suma_nspt = vld > 0 ? sum : '';
+        let sEl = document.getElementById(`cell_${index}_suma_nspt`); if(sEl) sEl.value = row.suma_nspt;
+    }
+
+    window.insertRowAfter = function(index) {
+        const newRow = {};
+        tableColsKeys.forEach(k => newRow[k] = ''); 
+        globalData.rows.splice(index + 1, 0, newRow);
+        
+        // Duplicar en Original Data para que no marque todo amarillo como error
+        if(originalOCRData && originalOCRData.rows) {
+            originalOCRData.rows.splice(index + 1, 0, JSON.parse(JSON.stringify(newRow)));
+        }
+        renderWorkspace();
+    };
+
+    window.addNewRow = function() {
+        const newRow = {};
+        tableColsKeys.forEach(k => newRow[k] = '');
+        if(!globalData.rows) globalData.rows = [];
+        globalData.rows.push(newRow);
+        
+        if(originalOCRData && originalOCRData.rows) {
+            originalOCRData.rows.push(JSON.parse(JSON.stringify(newRow)));
+        }
+        renderWorkspace();
+    };
+
+    window.deleteRow = function(index) { 
+        if (confirm("¿Eliminar esta fila de forma permanente?")) { 
+            globalData.rows.splice(index, 1); 
+            if(originalOCRData && originalOCRData.rows) originalOCRData.rows.splice(index, 1);
+            renderWorkspace(); 
+        } 
+    };
+
+    function updateStatsBox() {
+        document.getElementById('statExactCorrections').textContent = sessionStats.exactCorrections;
+        document.getElementById('statFuzzyMatches').textContent = sessionStats.fuzzyMatches;
+        document.getElementById('statMemorizedFields').textContent = Object.keys(correctionMemory).length;
+        document.getElementById('statLogicalRules').textContent = sessionStats.logicalRulesApplied;
+        document.getElementById('statCleanups').textContent = sessionStats.cleanupsApplied;
+        document.getElementById('statAnomalies').textContent = sessionStats.anomaliesDetected;
+    }
+
+    // ========== EVENTOS CARGA ARCHIVOS ==========
+    document.getElementById('jsonInput').addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            sessionStats = { exactCorrections: 0, fuzzyMatches: 0, logicalRulesApplied: 0, cleanupsApplied: 0, anomaliesDetected: 0, tfAccepted: 0 };
+            const parsed = JSON.parse(evt.target.result.replace(/\u00A0/g, ' '));
+            
+            // Guardar copia exacta para la V16
+            originalOCRData = JSON.parse(JSON.stringify(parsed));
+            
+            if(parsed.rows) {
+                parsed.rows.forEach((row, i) => {
+                    applyCleanupRules(row);
+                    for (let key in row) row[key] = formatField(key, row[key]); 
+                    applyCorrectionsToRow(row, i); 
+                    const issues = validateRow(row, i);
+                    sessionStats.anomaliesDetected += issues.length;
+                });
+            }
+            
+            globalData = parsed;
+            if (!globalData.header) globalData.header = {};
+            
+            renderWorkspace(); 
+            document.getElementById('workspace').style.display = 'block';
+            if (isModelTrained) globalData.rows.forEach((r, i) => runTFRowPrediction(i, r.observaciones));
+        };
+        reader.readAsText(e.target.files[0]);
+    });
+
+    document.getElementById('mlInput').addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const data = JSON.parse(evt.target.result);
+            correctionMemory = data.memory || data; logicalRelations = data.logic || []; cleanupRules = data.cleanup || [];
+            document.getElementById('mlStatus').textContent = `✓ Cerebro Activo`; document.getElementById('mlStatus').className = 'ml-status ml-active';
+            document.getElementById('btnManageMemory').style.display = 'inline-block';
+            updateStatsBox();
+        };
+        reader.readAsText(e.target.files[0]);
+    });
+
+    // ========== FUNCIONES DEL MODAL ==========
+    function switchTab(tabId, el) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        el.classList.add('active'); document.getElementById(tabId).classList.add('active');
+    }
+
+    document.getElementById('btnManageMemory').addEventListener('click', () => {
+        renderMemoryModal(); renderRulesModal(); renderCleanupModal();
+        document.getElementById('memoryModal').style.display = 'block';
+    });
+    document.getElementById('btnCloseModal').addEventListener('click', () => document.getElementById('memoryModal').style.display = 'none');
+
+    function renderMemoryModal() {
+        const list = document.getElementById('memoryList'); list.innerHTML = '';
+        for (const field in correctionMemory) {
+            for (const original in correctionMemory[field]) {
+                const data = correctionMemory[field][original];
+                list.innerHTML += `<div class="memory-item">
+                    <div><b>${field}</b> | Detecta: <span style="color:#ef4444">"${original}"</span> ➔ Cambia a: <span style="color:#16a34a; font-weight:bold;">"${data.correct}"</span></div>
+                    <button class="btn btn-danger" style="padding: 4px 8px;" onclick="deleteMemoryItem('${field}', '${original.replace(/'/g, "\\'")}')">Eliminar</button>
+                </div>`;
+            }
+        }
+    }
+    window.addManualMLRule = function() {
+        const field = document.getElementById('newMlField').value;
+        const orig = document.getElementById('newMlOriginal').value.trim();
+        const corr = document.getElementById('newMlCorrected').value.trim();
+        if(!orig) return alert("Llena el campo original.");
+        if (!correctionMemory[field]) correctionMemory[field] = {};
+        correctionMemory[field][orig] = { correct: corr, count: 5 };
+        renderMemoryModal(); document.getElementById('newMlOriginal').value = ''; document.getElementById('newMlCorrected').value = ''; updateStatsBox();
+    }
+    window.deleteMemoryItem = function(field, original) {
+        delete correctionMemory[field][original];
+        if (Object.keys(correctionMemory[field]).length === 0) delete correctionMemory[field];
+        renderMemoryModal(); updateStatsBox();
+    };
+
+    function renderRulesModal() {
+        const list = document.getElementById('rulesList'); list.innerHTML = '';
+        logicalRelations.forEach(rule => {
+            let text = `<b>SI</b> [${rule.ifCol}] ${rule.condition === 'contains' ? 'CONTIENE' : '=='} "${rule.ifVal}" ➔ <b>ASIGNA</b> [${rule.thenCol}] = "${rule.thenVal}"`;
+            if(rule.thenCol2 && rule.thenVal2) text += ` <span style="color:#f59e0b"><b>Y</b> [${rule.thenCol2}] = "${rule.thenVal2}"</span>`;
+            if(rule.thenCol3 && rule.thenVal3) text += ` <span style="color:#3b82f6"><b>Y</b> [${rule.thenCol3}] = "${rule.thenVal3}"</span>`;
+
+            list.innerHTML += `<div class="memory-item">
+                <div>${text}</div>
+                <button class="btn btn-danger" style="padding: 4px 8px;" onclick="deleteLogicalRule(${rule.id})">Eliminar</button>
+            </div>`;
+        });
+    }
+    window.addLogicalRule = function() {
+        const ifC = document.getElementById('ruleIfCol').value; const cond = document.getElementById('ruleCondition').value; const ifV = document.getElementById('ruleIfVal').value.trim(); 
+        const thC = document.getElementById('ruleThenCol').value; const thV = document.getElementById('ruleThenVal').value.trim();
+        const thC2 = document.getElementById('ruleThenCol2').value; const thV2 = document.getElementById('ruleThenVal2').value.trim();
+        const thC3 = document.getElementById('ruleThenCol3').value; const thV3 = document.getElementById('ruleThenVal3').value.trim();
+        if(!ifV || !thC || !thV) return alert("Debes llenar la condición y al menos la primera consecuencia.");
+        
+        logicalRelations.push({ id: Date.now(), ifCol: ifC, condition: cond, ifVal: ifV, thenCol: thC, thenVal: thV, thenCol2: thC2 !== "" ? thC2 : null, thenVal2: thV2, thenCol3: thC3 !== "" ? thC3 : null, thenVal3: thV3 });
+        renderRulesModal(); document.getElementById('ruleIfVal').value = ''; document.getElementById('ruleThenVal').value = ''; document.getElementById('ruleThenVal2').value = ''; document.getElementById('ruleThenVal3').value = '';
+    }
+    window.deleteLogicalRule = function(id) { logicalRelations = logicalRelations.filter(r => r.id !== id); renderRulesModal(); }
+
+    function renderCleanupModal() {
+        const list = document.getElementById('cleanupList'); list.innerHTML = '';
+        cleanupRules.forEach(rule => {
+            list.innerHTML += `<div class="memory-item">
+                <div><b>Columna:</b> [${rule.col}] | <b>Acción:</b> ${rule.type === 'exact' ? 'Vaciar celda si es' : 'Borrar texto'} <span style="color:#ef4444; font-weight:bold;">"${rule.text}"</span></div>
+                <button class="btn btn-danger" style="padding: 4px 8px;" onclick="deleteCleanupRule(${rule.id})">Eliminar</button>
+            </div>`;
+        });
+    }
+    window.addCleanupRule = function() {
+        const col = document.getElementById('cleanCol').value; const text = document.getElementById('cleanText').value; const type = document.getElementById('cleanType').value;
+        if(!text) return alert("Especifica texto a borrar.");
+        cleanupRules.push({ id: Date.now(), col: col, text: text, type: type });
+        renderCleanupModal(); document.getElementById('cleanText').value = '';
+    }
+    window.deleteCleanupRule = function(id) { cleanupRules = cleanupRules.filter(r => r.id !== id); renderCleanupModal(); }
+
+    // ==========================================
+    // SECCIÓN DE EXPORTACIONES JSON Y CSV
+    // ==========================================
+
+    document.getElementById('btnSaveCorrectedJSON').addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([JSON.stringify(globalData, null, 2)], { type: 'application/json' }));
+        link.download = 'datos_corregidos_final.json';
+        link.click();
+    });
+
+    document.getElementById('btnSaveOriginalJSON').addEventListener('click', () => {
+        if (!originalOCRData) return alert("No hay datos cargados.");
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([JSON.stringify(originalOCRData, null, 2)], { type: 'application/json' }));
+        link.download = 'datos_backup.json';
+        link.click();
+    });
+
+    document.getElementById('btnCSV').addEventListener('click', () => {
+        const escapeCSV = (val) => '"' + (val || '').toString().replace(/"/g, '""') + '"';
+        let csvContent = "PROF DE,PROF HASTA,NSPT15,NSPT30,NSPT45,NSPT60,RECHAZO,MUESTRA,RECUPERACION %,RQD\n";
+        globalData.rows.forEach(r => { csvContent += [r.prof_de, r.prof_a, r.nspt_0_15, r.nspt_15_30, r.nspt_30_45, r.nspt_45_60, r.rechazo, r.muestra_no, r.recuperacion_pct, r.rqd].map(escapeCSV).join(',') + '\n'; });
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' })); link.download = `Exportacion.csv`; 
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    });
+
+    document.getElementById('btnExportML').addEventListener('click', () => {
+        const exportData = { memory: correctionMemory, logic: logicalRelations, cleanup: cleanupRules };
+        const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })); link.download = 'brain_centro_control.json'; link.click();
+    });
+
+    // ==========================================
+    // LÓGICA DE MAPEO DE EXCEL (RESTAURADA Y MEJORADA)
+    // ==========================================
+
+    document.getElementById('templateInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            excelTemplateBuffer = evt.target.result;
+            document.getElementById('btnRegistro').disabled = false;
+            document.getElementById('btnMuestra').disabled = false;
+            alert("✓ Plantilla Excel cargada correctamente.");
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    async function processExcelExport(type) {
+        if (!excelTemplateBuffer) return alert("Por favor, carga primero la plantilla de Excel (.xlsx).");
+        if (!confirm("¿Verificaste correctamente los registros de campo antes de exportar?")) return;
+
+        const workbook = new ExcelJS.Workbook(); 
+        await workbook.xlsx.load(excelTemplateBuffer);
+        
+        const h = globalData.header; 
+        const rows = globalData.rows;
+        const sondeoId = (h.sondeo || "Sin_ID").replace(/[\/\\?%*:|"<>]/g, '-');
+
+        if (type === 'registro') {
+            const ws = workbook.worksheets[0];
+            ws.getCell('E7').value = h.proyecto; ws.getCell('E9').value = h.localizacion; ws.getCell('F13').value = h.tipo_sondeo; ws.getCell('F14').value = h.sondeo; ws.getCell('F15').value = h.na;
+            ws.getCell('L13').value = h.x; ws.getCell('L14').value = h.y; ws.getCell('L15').value = h.z;
+            ws.getCell('R13').value = h.fecha; ws.getCell('R14').value = h.operador; ws.getCell('R15').value = h.supervisor;
+            ws.getCell('Z13').value = h.maquinaria; ws.getCell('Z14').value = h.martillo; ws.getCell('Z15').value = h.diametro_barra;
+
+            let sheetIndex = 0; let currentRow = 19; let currentWs = ws;
+            for (let i = 0; i < rows.length; i++) {
+                if (currentRow > 36) { 
+                    sheetIndex++; 
+                    if (workbook.worksheets[sheetIndex]) { 
+                        currentWs = workbook.worksheets[sheetIndex]; currentRow = 19; 
+                    } else break; 
+                }
+                const r = rows[i];
+                currentWs.getCell(`C${currentRow}`).value = r.prof_de; currentWs.getCell(`D${currentRow}`).value = r.prof_a;
+                currentWs.getCell(`E${currentRow}`).value = r.c; currentWs.getCell(`F${currentRow}`).value = r.m; currentWs.getCell(`G${currentRow}`).value = r.s; currentWs.getCell(`H${currentRow}`).value = r.g; currentWs.getCell(`I${currentRow}`).value = r.b; currentWs.getCell(`J${currentRow}`).value = r.pt; currentWs.getCell(`K${currentRow}`).value = r.re;
+                currentWs.getCell(`L${currentRow}`).value = r.color; currentWs.getCell(`M${currentRow}`).value = r.observaciones; currentWs.getCell(`P${currentRow}`).value = r.muestra_no;
+                
+                // RESTAURACIÓN DEL EXPORT: Separa exactamente como están en la UI
+                currentWs.getCell(`Q${currentRow}`).value = r.herramienta_avance || '';
+                currentWs.getCell(`R${currentRow}`).value = r.herramienta_muestreo || '';
+                
+                currentWs.getCell(`T${currentRow}`).value = r.hincado; currentWs.getCell(`V${currentRow}`).value = r.recuperacion_cm; currentWs.getCell(`W${currentRow}`).value = r.recuperacion_pct;
+                currentWs.getCell(`X${currentRow}`).value = r.nspt_0_15; currentWs.getCell(`Y${currentRow}`).value = r.nspt_15_30; currentWs.getCell(`Z${currentRow}`).value = r.nspt_30_45; currentWs.getCell(`AA${currentRow}`).value = r.nspt_45_60;
+                if (r.rqd) currentWs.getCell(`AB${currentRow}`).value = `${r.rqd}%`;
+                currentRow++;
+            }
+            descargarExcel(workbook, `Registro_de_Campo_${sondeoId}.xlsm`);
+
+        } else if (type === 'muestra') {
+            let sheetNames = ['1', '1 (2)', '1 (3)', '1 (4)', '1 (5)', '1 (6)', '1 (7)', '1 (8)', '1 (9)', '1 (10)']; let currentSheetIdx = 0;
+            let currentWs = workbook.getWorksheet(sheetNames[currentSheetIdx]) || workbook.worksheets[0]; 
+            const llenarEncabezados = (ws) => { if(!ws) return; ws.getCell('G6').value = h.proyecto; ws.getCell('G8').value = h.sondeo; ws.getCell('G10').value = h.x; ws.getCell('G11').value = h.y; };
+            llenarEncabezados(currentWs);
+            let currentRow = 17;
+            for (let i = 0; i < rows.length; i++) {
+                if (currentRow > 57) { 
+                    currentSheetIdx++; 
+                    let nextWs = workbook.getWorksheet(sheetNames[currentSheetIdx]); 
+                    if(!nextWs) break; 
+                    currentWs = nextWs; currentRow = 17; 
+                    llenarEncabezados(currentWs); 
+                }
+                const r = rows[i];
+                currentWs.getCell(`C${currentRow}`).value = r.prof_de; currentWs.getCell(`D${currentRow}`).value = r.prof_a; currentWs.getCell(`E${currentRow}`).value = r.muestra_no; 
+                currentWs.getCell(`F${currentRow}`).value = r.herramienta_muestreo || r.herramienta_avance; 
+                currentWs.getCell(`G${currentRow}`).value = r.hincado; currentWs.getCell(`H${currentRow}`).value = r.recuperacion_cm; currentWs.getCell(`I${currentRow}`).value = r.rqd ? r.rqd : '';
+                currentRow++;
+            }
+            descargarExcel(workbook, `Formato_de_Muestra_${sondeoId}.xlsx`);
+        }
+    }
+
+    async function descargarExcel(workbook, filename) {
+        const buffer = await workbook.xlsx.writeBuffer();
+        const link = document.createElement('a'); 
+        link.href = window.URL.createObjectURL(new window.Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); 
+        link.download = filename; 
+        link.click();
+    }
+
+    document.getElementById('btnRegistro').addEventListener('click', () => processExcelExport('registro'));
+    document.getElementById('btnMuestra').addEventListener('click', () => processExcelExport('muestra'));
+
+</script>
+</body>
+</html>
